@@ -1,6 +1,7 @@
 /**
  * popup.js — Job Match AI Popup Controller
- * Features: match analysis, category breakdown, cover letter, per-URL history
+ * Features: single-tab analysis, multi-tab parallel analysis,
+ *           category breakdown, cover letter, per-URL history
  */
 
 const root = document.getElementById('root');
@@ -14,20 +15,8 @@ const MAX_HISTORY = 15;
 async function saveToHistory(url, pageTitle, analysis, coverLetter) {
   const stored = await chrome.storage.local.get('jobHistory');
   const history = stored.jobHistory || [];
-
-  // Remove existing entry for this URL if present
   const filtered = history.filter(h => h.url !== url);
-
-  // Prepend new entry
-  filtered.unshift({
-    url,
-    pageTitle,
-    analysis,
-    coverLetter,
-    timestamp: Date.now(),
-  });
-
-  // Keep only last MAX_HISTORY
+  filtered.unshift({ url, pageTitle, analysis, coverLetter, timestamp: Date.now() });
   await chrome.storage.local.set({ jobHistory: filtered.slice(0, MAX_HISTORY) });
 }
 
@@ -68,7 +57,7 @@ function timeAgo(ts) {
   return 'just now';
 }
 
-// ── Clipboard — synchronous execCommand, reliable in all extension contexts ───
+// ── Clipboard ─────────────────────────────────────────────────────────────────
 function copyToClipboard(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
@@ -78,7 +67,7 @@ function copyToClipboard(text) {
   ta.select();
   try { document.execCommand('copy'); } catch (_) {}
   document.body.removeChild(ta);
-  return Promise.resolve(); // keep callers happy
+  return Promise.resolve();
 }
 
 // ── SVG ring ──────────────────────────────────────────────────────────────────
@@ -178,6 +167,26 @@ window.copyCoverLetter = function () {
   });
 };
 
+// ── Visa badge ────────────────────────────────────────────────────────────────
+function buildVisaBadge(visa) {
+  if (visa === 'yes') {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
+      padding:3px 8px;border-radius:20px;font-weight:600;
+      background:rgba(34,197,94,0.12);color:#22c55e;
+      border:1px solid rgba(34,197,94,0.3);">✅ H1B Sponsorship</span>`;
+  }
+  if (visa === 'no') {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
+      padding:3px 8px;border-radius:20px;font-weight:600;
+      background:rgba(239,68,68,0.1);color:#ef4444;
+      border:1px solid rgba(239,68,68,0.25);">❌ No Sponsorship</span>`;
+  }
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
+    padding:3px 8px;border-radius:20px;font-weight:600;
+    background:rgba(245,158,11,0.1);color:#f59e0b;
+    border:1px solid rgba(245,158,11,0.25);">❓ Sponsorship Unknown</span>`;
+}
+
 // ── History view ──────────────────────────────────────────────────────────────
 async function renderHistory() {
   const history = await getAllHistory();
@@ -242,6 +251,7 @@ function renderIdle() {
       <p>Navigate to a job listing and click below to compare it with your profile.</p>
     </div>
     <button class="analyze-btn" id="analyzeBtn">Analyze This Job</button>
+    <button class="secondary-btn" id="multiBtn">⚡ Analyze Multiple Tabs in Parallel</button>
     <div style="padding:8px 16px 14px;display:flex;align-items:center;justify-content:center;gap:12px">
       <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer">🕓 History</button>
       <span style="color:var(--border)">·</span>
@@ -249,6 +259,7 @@ function renderIdle() {
     </div>`;
 
   document.getElementById('analyzeBtn').addEventListener('click', startAnalysis);
+  document.getElementById('multiBtn').addEventListener('click', renderTabSelector);
   document.getElementById('setupLink').addEventListener('click', (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
@@ -264,41 +275,21 @@ function renderLoading(msg = 'Analyzing job description...') {
     </div>`;
 }
 
-// ── Visa sponsorship badge ────────────────────────────────────────────────────
-function buildVisaBadge(visa) {
-  if (visa === 'yes') {
-    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
-      padding:3px 8px;border-radius:20px;font-weight:600;
-      background:rgba(34,197,94,0.12);color:#22c55e;
-      border:1px solid rgba(34,197,94,0.3);">
-      ✅ H1B Sponsorship Available
-    </span>`;
-  }
-  if (visa === 'no') {
-    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
-      padding:3px 8px;border-radius:20px;font-weight:600;
-      background:rgba(239,68,68,0.1);color:#ef4444;
-      border:1px solid rgba(239,68,68,0.25);">
-      ❌ No Visa Sponsorship
-    </span>`;
-  }
-  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
-    padding:3px 8px;border-radius:20px;font-weight:600;
-    background:rgba(245,158,11,0.1);color:#f59e0b;
-    border:1px solid rgba(245,158,11,0.25);">
-    ❓ Sponsorship Not Mentioned
-  </span>`;
-}
-
-// ── Render: results ───────────────────────────────────────────────────────────
-function renderResults(analysis, coverLetter, fromHistory = false) {
+// ── Render: results (single tab) ──────────────────────────────────────────────
+function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = false) {
   const role = analysis.role || {};
   const cats = (analysis.categories || []).map((c, i) => buildCategory(c, i)).join('');
+
+  const backBtn = fromMulti
+    ? `<button onclick="renderMultiResults(window._multiResults, window._multiBlocked, window._multiErrors)"
+         style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← All results</button>`
+    : `<button onclick="resetView()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← New analysis</button>`;
 
   root.innerHTML = `
     <div class="results">
       <div class="role-header">
         ${fromHistory ? `<div style="font-size:10px;color:var(--accent-light);margin-bottom:4px">📂 From history</div>` : ''}
+        ${fromMulti ? `<div style="font-size:10px;color:var(--accent-light);margin-bottom:4px">⚡ Multi-tab analysis</div>` : ''}
         <div class="role-company">${role.company || 'Company'}</div>
         <div class="role-title">${role.title || 'Job Title'}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center">
@@ -332,7 +323,7 @@ function renderResults(analysis, coverLetter, fromHistory = false) {
       ${coverLetter ? `<div class="divider"></div>${buildCoverLetter(coverLetter)}` : ''}
 
       <div style="padding:12px 16px 4px;display:flex;align-items:center;justify-content:center;gap:16px">
-        <button onclick="resetView()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← New analysis</button>
+        ${backBtn}
         <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">🕓 History</button>
       </div>
     </div>`;
@@ -343,9 +334,7 @@ function renderNoSponsorship(role = {}) {
   root.innerHTML = `
     <div style="padding:28px 20px 24px;text-align:center;">
       <div style="font-size:38px;margin-bottom:14px;">🚫</div>
-      <h2 style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">
-        No Visa Sponsorship
-      </h2>
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">No Visa Sponsorship</h2>
       <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:18px;">
         <strong style="color:var(--text);">${role.title || 'This role'}</strong>
         ${role.company ? `at <strong style="color:var(--text);">${role.company}</strong>` : ''}
@@ -357,9 +346,7 @@ function renderNoSponsorship(role = {}) {
         ❌ H1B / Visa Sponsorship Not Available
       </div>
       <button onclick="resetView()" style="background:none;border:none;color:var(--accent-light);
-        font-size:12px;cursor:pointer;text-decoration:underline;">
-        ← Analyze a different job
-      </button>
+        font-size:12px;cursor:pointer;text-decoration:underline;">← Analyze a different job</button>
     </div>`;
 }
 
@@ -379,19 +366,17 @@ function renderError(message) {
 
 window.resetView = renderIdle;
 
-// ── Main analysis flow ────────────────────────────────────────────────────────
+// ── Single-tab analysis ───────────────────────────────────────────────────────
 async function startAnalysis() {
   renderLoading('Reading job description...');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) { renderError('Could not access the current tab.'); return; }
 
-  // Inject content script
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
   } catch (_) {}
 
-  // Extract job description
   let jobData;
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB' });
@@ -421,19 +406,310 @@ async function startAnalysis() {
     return;
   }
 
-  // Visa sponsorship blocked — stop here, don't show match results
   if (result.blocked && result.reason === 'no_sponsorship') {
     renderNoSponsorship(result.role);
     return;
   }
 
-  // Save to history
   await saveToHistory(tab.url, tab.title, result.analysis, result.coverLetter);
-
   renderResults(result.analysis, result.coverLetter);
 }
 
-// ── Init: check if current tab has cached result ──────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// MULTI-TAB ANALYSIS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ── Tab selector screen ───────────────────────────────────────────────────────
+async function renderTabSelector() {
+  const allTabs = await chrome.tabs.query({});
+
+  // Filter out chrome://, new tab, extension pages, empty URLs
+  const tabs = allTabs.filter(t =>
+    t.url &&
+    !t.url.startsWith('chrome://') &&
+    !t.url.startsWith('chrome-extension://') &&
+    !t.url.startsWith('about:') &&
+    !t.url.startsWith('edge://') &&
+    t.title !== 'New Tab' &&
+    t.title !== ''
+  );
+
+  if (!tabs.length) {
+    root.innerHTML = `
+      <div class="state">
+        <div class="state-icon">🔍</div>
+        <h2>No Accessible Tabs</h2>
+        <p>Open a few job listing pages first, then come back here.</p>
+      </div>
+      <div style="padding:0 16px 16px;text-align:center">
+        <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+      </div>`;
+    return;
+  }
+
+  // Check which tabs have cached history
+  const stored = await chrome.storage.local.get('jobHistory');
+  const history = stored.jobHistory || [];
+
+  const items = tabs.map((t, i) => {
+    const cached = history.find(h => h.url === t.url);
+    const score = cached?.analysis?.overallMatch;
+    let domain = '';
+    try { domain = new URL(t.url).hostname.replace('www.', ''); } catch (_) {}
+
+    return `
+      <div class="tab-item">
+        <input type="checkbox" class="tab-check" id="check-${i}"
+          data-tab-id="${t.id}"
+          data-tab-url="${(t.url || '').replace(/"/g, '&quot;')}"
+          data-tab-title="${(t.title || '').replace(/"/g, '&quot;')}"
+          onchange="updateAnalyzeBtn()">
+        <label for="check-${i}" class="tab-label">
+          <div class="tab-title">${t.title || domain}</div>
+          <div class="tab-domain">${domain}${cached ? ' · analyzed' : ''}</div>
+        </label>
+        ${score != null ? `<span class="tab-cached-score" style="color:${scoreColor(score)}">${score}%</span>` : ''}
+      </div>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:12px;font-weight:700">Select Tabs to Analyze</span>
+      <button onclick="toggleSelectAll()" id="selectAllBtn"
+        style="background:none;border:none;color:var(--accent-light);font-size:11px;cursor:pointer">
+        Select all
+      </button>
+    </div>
+    <div class="tab-list">${items}</div>
+    <div style="padding:10px 16px 14px">
+      <button class="analyze-btn" id="multiAnalyzeBtn" disabled onclick="startMultiAnalysis()">
+        Select tabs above
+      </button>
+      <div style="text-align:center;margin-top:8px">
+        <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+      </div>
+    </div>`;
+}
+
+window.updateAnalyzeBtn = function () {
+  const checks = [...document.querySelectorAll('.tab-check:checked')];
+  const btn = document.getElementById('multiAnalyzeBtn');
+  if (!btn) return;
+  btn.disabled = checks.length === 0;
+  if (checks.length === 0) {
+    btn.textContent = 'Select tabs above';
+  } else if (checks.length === 1) {
+    btn.textContent = 'Analyze 1 Job';
+  } else {
+    btn.textContent = `⚡ Analyze ${checks.length} Jobs in Parallel`;
+  }
+};
+
+window.toggleSelectAll = function () {
+  const checks = document.querySelectorAll('.tab-check');
+  const allChecked = [...checks].every(c => c.checked);
+  checks.forEach(c => { c.checked = !allChecked; });
+  const btn = document.getElementById('selectAllBtn');
+  if (btn) btn.textContent = allChecked ? 'Select all' : 'Deselect all';
+  updateAnalyzeBtn();
+};
+
+// ── Start parallel analysis ───────────────────────────────────────────────────
+window.startMultiAnalysis = async function () {
+  const checks = [...document.querySelectorAll('.tab-check:checked')];
+  if (!checks.length) return;
+
+  const selectedTabs = checks.map(c => ({
+    id: parseInt(c.dataset.tabId),
+    url: c.dataset.tabUrl,
+    title: c.dataset.tabTitle,
+  }));
+
+  renderMultiProgress(selectedTabs);
+
+  // Fire all analyses in parallel
+  const promises = selectedTabs.map(tab => analyzeOneTab(tab));
+  const settled = await Promise.allSettled(promises);
+
+  const outcomes = settled.map((r, i) => ({
+    tab: selectedTabs[i],
+    ...(r.status === 'fulfilled' ? r.value : { error: r.reason?.message || 'Failed' }),
+  }));
+
+  const successful = outcomes.filter(o => o.analysis).sort((a, b) => b.analysis.overallMatch - a.analysis.overallMatch);
+  const blocked = outcomes.filter(o => o.blocked);
+  const errors = outcomes.filter(o => !o.analysis && !o.blocked);
+
+  // Store for drill-down navigation
+  window._multiResults = successful;
+  window._multiBlocked = blocked;
+  window._multiErrors = errors;
+
+  renderMultiResults(successful, blocked, errors);
+};
+
+// ── Analyze a single tab (used inside parallel batch) ────────────────────────
+async function analyzeOneTab(tab) {
+  updateTabProgress(tab.id, 'reading');
+
+  // Inject content script
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+  } catch (_) {}
+
+  // Extract job description
+  let jobData;
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB' });
+    if (!response?.success) throw new Error('Could not extract job description');
+    jobData = response;
+  } catch (err) {
+    updateTabProgress(tab.id, 'error', 'Could not read page');
+    throw new Error('Could not read page');
+  }
+
+  if (!jobData.jobText || jobData.jobText.trim().length < 100) {
+    updateTabProgress(tab.id, 'error', 'No job description found');
+    throw new Error('No job description found');
+  }
+
+  updateTabProgress(tab.id, 'analyzing');
+
+  let domain = '';
+  try { domain = new URL(tab.url).hostname; } catch (_) {}
+
+  const result = await chrome.runtime.sendMessage({
+    type: 'ANALYZE_JOB',
+    jobText: jobData.jobText,
+    jobTitle: tab.title || '',
+    company: domain,
+  });
+
+  if (!result?.success) {
+    const msg = result?.error || 'Analysis failed';
+    updateTabProgress(tab.id, 'error', msg);
+    throw new Error(msg);
+  }
+
+  if (result.blocked && result.reason === 'no_sponsorship') {
+    updateTabProgress(tab.id, 'blocked');
+    return { blocked: true, reason: 'no_sponsorship', role: result.role };
+  }
+
+  await saveToHistory(tab.url, tab.title, result.analysis, result.coverLetter);
+  updateTabProgress(tab.id, 'done', result.analysis.overallMatch);
+  return { analysis: result.analysis, coverLetter: result.coverLetter };
+}
+
+// ── Progress screen ───────────────────────────────────────────────────────────
+function renderMultiProgress(tabs) {
+  const items = tabs.map(t => `
+    <div class="progress-item" id="prog-${t.id}">
+      <div class="progress-status" id="prog-status-${t.id}">⏳</div>
+      <div class="progress-info">
+        <div class="progress-title">${(t.title || t.url).substring(0, 60)}</div>
+        <div class="progress-msg" id="prog-msg-${t.id}">Waiting...</div>
+      </div>
+    </div>`).join('');
+
+  root.innerHTML = `
+    <div style="padding:14px 16px 10px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:3px">
+        ⚡ Analyzing ${tabs.length} job${tabs.length > 1 ? 's' : ''} in parallel
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Claude is processing all tabs simultaneously</div>
+    </div>
+    <div class="progress-list">${items}</div>`;
+}
+
+function updateTabProgress(tabId, status, detail = '') {
+  const statusEl = document.getElementById(`prog-status-${tabId}`);
+  const msgEl = document.getElementById(`prog-msg-${tabId}`);
+  if (!statusEl || !msgEl) return;
+
+  const map = {
+    reading:   ['🔍', 'Reading job description...', ''],
+    analyzing: ['⚙️', 'Claude is analyzing...', ''],
+    done:      ['✅', `${detail}% match`, scoreColor(parseInt(detail))],
+    blocked:   ['🚫', 'No visa sponsorship — skipped', '#f87171'],
+    error:     ['❌', detail || 'Failed', '#f87171'],
+  };
+
+  const [icon, msg, color] = map[status] || ['⏳', 'Waiting...', ''];
+  statusEl.textContent = icon;
+  msgEl.textContent = msg;
+  if (color) msgEl.style.color = color;
+}
+
+// ── Multi-results summary list ────────────────────────────────────────────────
+window.renderMultiResults = function (successful, blocked, errors) {
+  const successItems = (successful || []).map((o, i) => {
+    const score = o.analysis.overallMatch;
+    const role = o.analysis.role || {};
+    return `
+      <div class="multi-result-item" onclick="viewMultiResult(${i})">
+        <div class="multi-score" style="color:${scoreColor(score)}">${score}%</div>
+        <div class="multi-info">
+          <div class="multi-title">${role.title || o.tab.title || 'Job'}</div>
+          <div class="multi-company">${role.company || ''}${role.level ? ' · ' + role.level : ''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          ${buildVisaBadge(o.analysis.visaSponsorship)}
+          <span style="color:var(--muted);font-size:10px">▶ details</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const blockedItems = (blocked || []).map(o => `
+    <div class="multi-result-item multi-result-blocked">
+      <div class="multi-score">🚫</div>
+      <div class="multi-info">
+        <div class="multi-title">${o.role?.title || o.tab?.title || 'Job'}</div>
+        <div class="multi-company" style="color:#f87171">No visa sponsorship — skipped</div>
+      </div>
+    </div>`).join('');
+
+  const errorItems = (errors || []).map(o => `
+    <div class="multi-result-item multi-result-error">
+      <div class="multi-score">❌</div>
+      <div class="multi-info">
+        <div class="multi-title">${o.tab?.title || 'Job'}</div>
+        <div class="multi-company" style="color:#f87171">${o.error || 'Failed'}</div>
+      </div>
+    </div>`).join('');
+
+  const totalSkipped = (blocked?.length || 0) + (errors?.length || 0);
+  const subtitle = [
+    successful?.length ? `${successful.length} analyzed` : '',
+    blocked?.length ? `${blocked.length} no sponsorship` : '',
+    errors?.length ? `${errors.length} failed` : '',
+  ].filter(Boolean).join(' · ');
+
+  root.innerHTML = `
+    <div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:12px;font-weight:700">⚡ Parallel Results</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${subtitle}</div>
+      </div>
+      <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:11px;cursor:pointer">🕓 History</button>
+    </div>
+    <div class="multi-results-list">
+      ${successItems}${blockedItems}${errorItems}
+    </div>
+    <div style="padding:8px 16px 14px;display:flex;align-items:center;justify-content:center;gap:16px">
+      <button onclick="renderTabSelector()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">⚡ Analyze more tabs</button>
+      <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Home</button>
+    </div>`;
+};
+
+window.viewMultiResult = function (idx) {
+  const results = window._multiResults || [];
+  const o = results[idx];
+  if (!o) return;
+  renderResults(o.analysis, o.coverLetter, false, true);
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.url) {

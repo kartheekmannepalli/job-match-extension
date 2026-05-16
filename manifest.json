@@ -5,6 +5,7 @@
   "description": "Instantly compare any job description against your resume. Get a detailed match score with categories, and auto-generate a cover letter when you're a strong fit.",
   "permissions": [
     "activeTab",
+    "tabs",
     "scripting",
     "storage",
     "clipboardWrite"
