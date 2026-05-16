@@ -462,8 +462,7 @@ async function renderTabSelector() {
         <input type="checkbox" class="tab-check" id="check-${i}"
           data-tab-id="${t.id}"
           data-tab-url="${(t.url || '').replace(/"/g, '&quot;')}"
-          data-tab-title="${(t.title || '').replace(/"/g, '&quot;')}"
-          onchange="updateAnalyzeBtn()">
+          data-tab-title="${(t.title || '').replace(/"/g, '&quot;')}">
         <label for="check-${i}" class="tab-label">
           <div class="tab-title">${t.title || domain}</div>
           <div class="tab-domain">${domain}${cached ? ' · analyzed' : ''}</div>
@@ -475,20 +474,28 @@ async function renderTabSelector() {
   root.innerHTML = `
     <div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:12px;font-weight:700">Select Tabs to Analyze</span>
-      <button onclick="toggleSelectAll()" id="selectAllBtn"
+      <button id="selectAllBtn"
         style="background:none;border:none;color:var(--accent-light);font-size:11px;cursor:pointer">
         Select all
       </button>
     </div>
     <div class="tab-list">${items}</div>
     <div style="padding:10px 16px 14px">
-      <button class="analyze-btn" id="multiAnalyzeBtn" disabled onclick="startMultiAnalysis()">
+      <button class="analyze-btn" id="multiAnalyzeBtn" disabled>
         Select tabs above
       </button>
       <div style="text-align:center;margin-top:8px">
-        <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+        <button id="tabBackBtn" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
       </div>
     </div>`;
+
+  // Wire up listeners via JS — inline onchange/onclick in innerHTML is unreliable in MV3 popups
+  document.querySelectorAll('.tab-check').forEach(cb => {
+    cb.addEventListener('change', window.updateAnalyzeBtn);
+  });
+  document.getElementById('selectAllBtn').addEventListener('click', window.toggleSelectAll);
+  document.getElementById('multiAnalyzeBtn').addEventListener('click', window.startMultiAnalysis);
+  document.getElementById('tabBackBtn').addEventListener('click', renderIdle);
 }
 
 window.updateAnalyzeBtn = function () {
