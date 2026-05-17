@@ -9,6 +9,31 @@ const settingsBtn = document.getElementById('settingsBtn');
 
 settingsBtn.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
+// ── Delegated click handler ───────────────────────────────────────────────────
+// MV3 popup CSP blocks inline onclick= attributes. We dispatch via data-action
+// on any clicked element (or its ancestor), looking up the handler on `window`.
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.getAttribute('data-action');
+  const fn = window[action];
+  if (typeof fn !== 'function') {
+    console.warn(`[JobMatch] No handler registered for data-action="${action}"`);
+    return;
+  }
+  const raw = el.getAttribute('data-arg');
+  // Pass numeric args as numbers, otherwise as strings; pass undefined for no arg.
+  let arg;
+  if (raw !== null) {
+    arg = /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
+  }
+  try {
+    fn(arg);
+  } catch (err) {
+    console.error(`[JobMatch] Handler "${action}" threw:`, err);
+  }
+});
+
 // ── History helpers ───────────────────────────────────────────────────────────
 const MAX_HISTORY = 15;
 
@@ -58,16 +83,31 @@ function timeAgo(ts) {
 }
 
 // ── Clipboard ─────────────────────────────────────────────────────────────────
-function copyToClipboard(text) {
+// Prefer the async Clipboard API (works in MV3 popups when triggered by a user
+// gesture). Fall back to a hidden-textarea + execCommand path for older Chromes
+// or when the Clipboard API rejects (e.g. popup loses focus mid-click).
+async function copyToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('[JobMatch] navigator.clipboard.writeText failed, falling back:', err);
+    }
+  }
+  // Legacy fallback
   const ta = document.createElement('textarea');
   ta.value = text;
-  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;opacity:0';
   document.body.appendChild(ta);
   ta.focus();
   ta.select();
-  try { document.execCommand('copy'); } catch (_) {}
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (_) {}
   document.body.removeChild(ta);
-  return Promise.resolve();
+  return ok;
 }
 
 // ── SVG ring ──────────────────────────────────────────────────────────────────
@@ -95,7 +135,7 @@ function buildCategory(cat, idx) {
   const gaps = (cat.gaps || []).map(g => `<span class="tag gap">${g}</span>`).join('');
   return `
     <div class="category" id="cat-${idx}">
-      <div class="category-header" onclick="toggleCat(${idx})">
+      <div class="category-header" data-action="toggleCat" data-arg="${idx}">
         <span class="category-icon">${cat.icon || '📋'}</span>
         <span class="category-name">${cat.name}</span>
         <span class="category-score ${scoreClass(cat.score)}">${cat.score}%</span>
@@ -124,16 +164,20 @@ window.toggleCat = function (idx) {
 };
 
 // ── Keywords ──────────────────────────────────────────────────────────────────
-function buildKeywords(found = [], missing = []) {
-  const foundTags = found.slice(0, 12).map(k => `<span class="tag matched">${k}</span>`).join('');
-  const missingTags = missing.slice(0, 8).map(k => `<span class="tag gap">${k}</span>`).join('');
+function buildKeywords(found = [], missingMustHave = [], missingNiceToHave = []) {
+  // Show every found skill (no arbitrary cap) so the user sees full coverage
+  const foundTags = found.map(k => `<span class="tag matched">${k}</span>`).join('');
+  const mustHaveTags = missingMustHave.map(k => `<span class="tag must-have-gap">${k}</span>`).join('');
+  const niceToHaveTags = missingNiceToHave.map(k => `<span class="tag nice-to-have-gap">${k}</span>`).join('');
   return `
     <div class="keywords-section">
       <div class="section-label">Keyword Match</div>
       ${foundTags ? `<div class="detail-label" style="margin-bottom:5px">✅ Found in your resume</div>
       <div class="keyword-row">${foundTags}</div>` : ''}
-      ${missingTags ? `<div class="detail-label" style="margin-bottom:5px;margin-top:8px">⚠️ Not found</div>
-      <div class="keyword-row">${missingTags}</div>` : ''}
+      ${mustHaveTags ? `<div class="detail-label" style="margin-bottom:5px;margin-top:10px;color:#fca5a5">🚫 Missing must-haves (pulls score down)</div>
+      <div class="keyword-row">${mustHaveTags}</div>` : ''}
+      ${niceToHaveTags ? `<div class="detail-label" style="margin-bottom:5px;margin-top:10px">⚠️ Missing nice-to-haves</div>
+      <div class="keyword-row">${niceToHaveTags}</div>` : ''}
     </div>`;
 }
 
@@ -149,22 +193,34 @@ function buildCoverLetter(text) {
           <span>≥60% match — ready to send!</span>
         </div>
         <div class="cover-letter-text" id="coverLetterText">${text}</div>
-        <button class="copy-btn" id="copyBtn" onclick="copyCoverLetter()">📋 Copy to Clipboard</button>
+        <button class="copy-btn" id="copyBtn" data-action="copyCoverLetter">📋 Copy to Clipboard</button>
       </div>
     </div>`;
 }
 
-window.copyCoverLetter = function () {
-  const text = document.getElementById('coverLetterText').innerText;
-  copyToClipboard(text).then(() => {
-    const btn = document.getElementById('copyBtn');
-    if (!btn) return;
+window.copyCoverLetter = async function () {
+  const el = document.getElementById('coverLetterText');
+  if (!el) return;
+  const text = el.innerText;
+  const btn = document.getElementById('copyBtn');
+  const ok = await copyToClipboard(text);
+  if (!btn) return;
+  if (ok) {
     btn.textContent = '✅ Copied!';
     btn.classList.add('copied');
-    setTimeout(() => {
-      if (btn) { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('copied'); }
-    }, 2000);
-  });
+  } else {
+    btn.textContent = '⚠️ Copy failed — select & ⌘C';
+    btn.classList.add('copied');
+    // Select the text so user can manually copy with keyboard
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  setTimeout(() => {
+    if (btn) { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('copied'); }
+  }, 2500);
 };
 
 // ── Visa badge ────────────────────────────────────────────────────────────────
@@ -198,7 +254,7 @@ async function renderHistory() {
         <p>Analyzed jobs will appear here so you can review them anytime.</p>
       </div>
       <div style="padding:0 16px 16px;text-align:center">
-        <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+        <button data-action="resetView" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
       </div>`;
     return;
   }
@@ -208,7 +264,7 @@ async function renderHistory() {
     const color = scoreColor(score);
     const role = h.analysis?.role || {};
     return `
-      <div class="history-item" onclick="loadHistoryItem(${i})">
+      <div class="history-item" data-action="loadHistoryItem" data-arg="${i}">
         <div class="history-score" style="color:${color}">${score}%</div>
         <div class="history-info">
           <div class="history-title">${role.title || h.pageTitle || 'Job Analysis'}</div>
@@ -221,11 +277,11 @@ async function renderHistory() {
   root.innerHTML = `
     <div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:12px;font-weight:700">Recent Analyses</span>
-      <button onclick="confirmClearHistory()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer">Clear all</button>
+      <button data-action="confirmClearHistory" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer">Clear all</button>
     </div>
     <div class="history-list">${items}</div>
     <div style="padding:8px 16px 16px;text-align:center">
-      <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+      <button data-action="resetView" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
     </div>`;
 }
 
@@ -253,7 +309,7 @@ function renderIdle() {
     <button class="analyze-btn" id="analyzeBtn">Analyze This Job</button>
     <button class="secondary-btn" id="multiBtn">⚡ Analyze Multiple Tabs in Parallel</button>
     <div style="padding:8px 16px 14px;display:flex;align-items:center;justify-content:center;gap:12px">
-      <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer">🕓 History</button>
+      <button data-action="renderHistory" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer">🕓 History</button>
       <span style="color:var(--border)">·</span>
       <a href="#" id="setupLink" style="color:var(--muted);font-size:12px">⚙️ Setup</a>
     </div>`;
@@ -281,9 +337,9 @@ function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = f
   const cats = (analysis.categories || []).map((c, i) => buildCategory(c, i)).join('');
 
   const backBtn = fromMulti
-    ? `<button onclick="renderMultiResults(window._multiResults, window._multiBlocked, window._multiErrors)"
+    ? `<button data-action="backToMultiResults"
          style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← All results</button>`
-    : `<button onclick="resetView()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← New analysis</button>`;
+    : `<button data-action="resetView" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← New analysis</button>`;
 
   root.innerHTML = `
     <div class="results">
@@ -303,6 +359,11 @@ function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = f
         <div class="score-info">
           <h3>Overall Match</h3>
           <p>${analysis.summary || ''}</p>
+          ${analysis.scoreReasoning ? `
+            <div class="score-reasoning${(analysis.keywordsMissingMustHave && analysis.keywordsMissingMustHave.length) ? '' : ' positive'}">
+              <span class="score-reasoning-label">Why this score</span>
+              ${analysis.scoreReasoning}
+            </div>` : ''}
         </div>
       </div>
 
@@ -311,7 +372,11 @@ function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = f
         ${cats}
       </div>
 
-      ${buildKeywords(analysis.keywordsFound, analysis.keywordsMissing)}
+      ${buildKeywords(
+        analysis.keywordsFound,
+        analysis.keywordsMissingMustHave || (analysis.keywordsMissing || []),
+        analysis.keywordsMissingNiceToHave || []
+      )}
 
       ${analysis.applicationAdvice ? `
         <div class="divider"></div>
@@ -324,7 +389,7 @@ function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = f
 
       <div style="padding:12px 16px 4px;display:flex;align-items:center;justify-content:center;gap:16px">
         ${backBtn}
-        <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">🕓 History</button>
+        <button data-action="renderHistory" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">🕓 History</button>
       </div>
     </div>`;
 }
@@ -345,7 +410,7 @@ function renderNoSponsorship(role = {}) {
         border-radius:var(--radius);font-size:11px;color:#f87171;margin-bottom:20px;">
         ❌ H1B / Visa Sponsorship Not Available
       </div>
-      <button onclick="resetView()" style="background:none;border:none;color:var(--accent-light);
+      <button data-action="resetView" style="background:none;border:none;color:var(--accent-light);
         font-size:12px;cursor:pointer;text-decoration:underline;">← Analyze a different job</button>
     </div>`;
 }
@@ -360,11 +425,17 @@ function renderError(message) {
       <p>${isNoKey ? 'Please add your Claude API key in settings to start analyzing jobs.' : message}</p>
     </div>
     ${isNoKey
-      ? `<button class="analyze-btn" onclick="chrome.runtime.openOptionsPage()">Open Settings</button>`
-      : `<button class="analyze-btn" onclick="resetView()">Try Again</button>`}`;
+      ? `<button class="analyze-btn" data-action="openSettings">Open Settings</button>`
+      : `<button class="analyze-btn" data-action="resetView">Try Again</button>`}`;
 }
 
 window.resetView = renderIdle;
+window.renderHistory = renderHistory;
+window.renderTabSelector = renderTabSelector;
+window.openSettings = () => chrome.runtime.openOptionsPage();
+window.backToMultiResults = () => {
+  window.renderMultiResults(window._multiResults, window._multiBlocked, window._multiErrors);
+};
 
 // ── Single-tab analysis ───────────────────────────────────────────────────────
 async function startAnalysis() {
@@ -442,7 +513,7 @@ async function renderTabSelector() {
         <p>Open a few job listing pages first, then come back here.</p>
       </div>
       <div style="padding:0 16px 16px;text-align:center">
-        <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
+        <button data-action="resetView" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Back</button>
       </div>`;
     return;
   }
@@ -654,7 +725,7 @@ window.renderMultiResults = function (successful, blocked, errors) {
     const score = o.analysis.overallMatch;
     const role = o.analysis.role || {};
     return `
-      <div class="multi-result-item" onclick="viewMultiResult(${i})">
+      <div class="multi-result-item" data-action="viewMultiResult" data-arg="${i}">
         <div class="multi-score" style="color:${scoreColor(score)}">${score}%</div>
         <div class="multi-info">
           <div class="multi-title">${role.title || o.tab.title || 'Job'}</div>
@@ -698,14 +769,14 @@ window.renderMultiResults = function (successful, blocked, errors) {
         <div style="font-size:12px;font-weight:700">⚡ Parallel Results</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${subtitle}</div>
       </div>
-      <button onclick="renderHistory()" style="background:none;border:none;color:var(--accent-light);font-size:11px;cursor:pointer">🕓 History</button>
+      <button data-action="renderHistory" style="background:none;border:none;color:var(--accent-light);font-size:11px;cursor:pointer">🕓 History</button>
     </div>
     <div class="multi-results-list">
       ${successItems}${blockedItems}${errorItems}
     </div>
     <div style="padding:8px 16px 14px;display:flex;align-items:center;justify-content:center;gap:16px">
-      <button onclick="renderTabSelector()" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">⚡ Analyze more tabs</button>
-      <button onclick="renderIdle()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Home</button>
+      <button data-action="renderTabSelector" style="background:none;border:none;color:var(--accent-light);font-size:12px;cursor:pointer;text-decoration:underline">⚡ Analyze more tabs</button>
+      <button data-action="resetView" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">← Home</button>
     </div>`;
 };
 
