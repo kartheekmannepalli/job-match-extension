@@ -351,8 +351,95 @@ async function analyzeJob(jobText, jobTitle, company) {
   return { analysis, coverLetter };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// AUTO-ANALYSIS — background analysis triggered by content.js page detection
+// ════════════════════════════════════════════════════════════════════════════
+
+const MAX_HISTORY = 15;
+const autoInFlight = new Set(); // URLs currently being auto-analyzed (dedup guard)
+
+async function getHistory() {
+  const stored = await chrome.storage.local.get('jobHistory');
+  return stored.jobHistory || [];
+}
+
+// Mirrors popup.js saveToHistory so background-initiated analyses land in the
+// same history list the popup reads.
+async function saveToHistory(url, pageTitle, analysis, coverLetter) {
+  const history = await getHistory();
+  const filtered = history.filter((h) => h.url !== url);
+  filtered.unshift({ url, pageTitle, analysis, coverLetter, timestamp: Date.now() });
+  await chrome.storage.local.set({ jobHistory: filtered.slice(0, MAX_HISTORY) });
+}
+
+// ── Toolbar badge ─────────────────────────────────────────────────────────────
+function badgeColorForScore(score) {
+  if (score >= 70) return '#22c55e'; // green
+  if (score >= 50) return '#f59e0b'; // amber
+  return '#ef4444';                  // red
+}
+
+async function setBadge(tabId, text, color) {
+  if (tabId == null) return;
+  try {
+    await chrome.action.setBadgeText({ tabId, text: text || '' });
+    if (color) await chrome.action.setBadgeBackgroundColor({ tabId, color });
+  } catch (_) { /* tab closed or navigated away — ignore */ }
+}
+
+function applyBadge(tabId, analysis) {
+  if (!analysis) return;
+  if (analysis.blocked) { setBadge(tabId, '✕', '#ef4444'); return; }
+  const score = Math.round(analysis.overallMatch || 0);
+  setBadge(tabId, String(score), badgeColorForScore(score));
+}
+
+// ── Auto-analyze handler ──────────────────────────────────────────────────────
+async function handleAutoAnalyze(message, tabId) {
+  const url = message.url;
+  if (!url) return;
+
+  const settings = await chrome.storage.local.get(['autoAnalyze', 'apiKey']);
+  // Toggle defaults to ON — only an explicit `false` disables auto-analysis.
+  if (settings.autoAnalyze === false) return;
+  // No API key configured: stay silent and let the user analyze manually.
+  if (!settings.apiKey) { setBadge(tabId, '', null); return; }
+
+  // Dedup: this URL was already analyzed — just restore the badge from cache,
+  // no API call.
+  const history = await getHistory();
+  const cached = history.find((h) => h.url === url);
+  if (cached) { applyBadge(tabId, cached.analysis); return; }
+
+  // Guard against double-firing while an analysis for this URL is in progress.
+  if (autoInFlight.has(url)) return;
+  autoInFlight.add(url);
+  await setBadge(tabId, '…', '#6c63ff'); // loading
+
+  try {
+    const result = await analyzeJob(message.jobText, message.jobTitle, message.company);
+    if (result.blocked) {
+      await saveToHistory(url, message.jobTitle, {
+        blocked: true,
+        reason: 'no_sponsorship',
+        visaSponsorship: 'no',
+        role: result.role,
+      }, '');
+      await setBadge(tabId, '✕', '#ef4444');
+    } else {
+      await saveToHistory(url, message.jobTitle, result.analysis, result.coverLetter);
+      applyBadge(tabId, result.analysis);
+    }
+  } catch (_) {
+    // Background work fails silently — clear the loading badge.
+    await setBadge(tabId, '', null);
+  } finally {
+    autoInFlight.delete(url);
+  }
+}
+
 // ── Message listener ──────────────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ANALYZE_JOB') {
     const { jobText, jobTitle, company } = message;
     analyzeJob(jobText, jobTitle, company)
@@ -361,5 +448,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ success: false, error: err.message })
       );
     return true; // async
+  }
+
+  if (message.type === 'AUTO_ANALYZE') {
+    handleAutoAnalyze(message, sender.tab?.id);
+    return false; // fire-and-forget
+  }
+
+  if (message.type === 'CLEAR_BADGE') {
+    setBadge(sender.tab?.id, '', null);
+    return false;
   }
 });

@@ -371,6 +371,12 @@
       transition: border-color 0.15s;
     }
     .tab-item:has(.tab-check:checked) { border-color: var(--accent); background: rgba(108,99,255,0.06); }
+    .tab-item-blocked {
+      opacity: 0.62;
+      background: rgba(239,68,68,0.05);
+      border-color: rgba(239,68,68,0.25);
+    }
+    .tab-item-blocked .tab-title { text-decoration: line-through; text-decoration-color: rgba(248,113,113,0.6); }
     .tab-check {
       width: 15px; height: 15px; flex-shrink: 0; cursor: pointer;
       accent-color: var(--accent);

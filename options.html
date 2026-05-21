@@ -73,6 +73,18 @@
     }
     .api-hint a { color: var(--accent-light); }
 
+    /* Switch row */
+    .switch-row {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; text-transform: none; letter-spacing: normal;
+      font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 0;
+    }
+    .switch-row input[type="checkbox"] {
+      width: 17px; height: 17px; flex-shrink: 0; cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .switch-text { user-select: none; }
+
     /* Buttons */
     .save-btn {
       display: inline-flex; align-items: center; gap: 6px;
@@ -128,15 +140,26 @@
       <label for="apiKey">API Key</label>
       <div class="api-key-wrap">
         <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off" />
-        <button class="toggle-vis" onclick="toggleVis()" title="Show/hide">👁</button>
+        <button class="toggle-vis" id="toggleVisBtn" type="button" title="Show/hide">👁</button>
       </div>
-      <p class="api-hint">Uses <strong>claude-haiku-4-5</strong> · ~$0.002–0.01 per analysis · <a href="https://console.anthropic.com/settings/billing" target="_blank">Check usage</a></p>
+      <p class="api-hint">Uses <strong>claude-sonnet-4-6</strong> · ~$0.002–0.01 per analysis · <a href="https://console.anthropic.com/settings/billing" target="_blank">Check usage</a></p>
+    </div>
+
+    <!-- Auto-analysis -->
+    <div class="card">
+      <h2>⚡ Automatic Analysis</h2>
+      <p class="desc">When enabled, the extension detects job postings as you browse and analyzes them automatically — no need to click. The match score appears as a colored badge on the toolbar icon.</p>
+      <label class="switch-row" for="autoAnalyze">
+        <input type="checkbox" id="autoAnalyze" />
+        <span class="switch-text">Automatically analyze job pages as I browse</span>
+      </label>
+      <p class="api-hint">Each auto-analysis uses API credits just like a manual run. Turn this off to analyze only on click.</p>
     </div>
 
     <!-- Resume -->
     <div class="card">
       <h2>📄 Your Resume / Profile</h2>
-      <p class="desc">Your resume is pre-loaded with your profile. Edit or update it here anytime — this is what Claude compares against every job description.</p>
+      <p class="desc">Your resume is pre-loaded based on the file you shared. Edit or update it here anytime — this is what Claude compares against every job description.</p>
 
       <div class="info-box">
         <strong>Tip:</strong> Keep this as plain text. Include all your skills, technologies, responsibilities, and achievements. The more detail, the better the match analysis.
@@ -146,7 +169,7 @@
       <textarea id="resumeText" placeholder="Paste your resume here..."></textarea>
     </div>
 
-    <button class="save-btn" onclick="saveSettings()">💾 Save Settings</button>
+    <button class="save-btn" id="saveBtn" type="button">💾 Save Settings</button>
   </div>
 
   <div class="toast" id="toast">✅ Settings saved!</div>

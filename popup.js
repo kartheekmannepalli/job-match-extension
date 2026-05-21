@@ -60,6 +60,19 @@ async function clearHistory() {
   await chrome.storage.local.set({ jobHistory: [] });
 }
 
+// Persist a "no visa sponsorship" verdict so the user never re-analyzes the
+// same job. We store a minimal analysis object flagged with blocked:true; the
+// tab selector, history list, and init() all special-case it.
+async function saveNoSponsorship(url, pageTitle, role) {
+  const analysis = {
+    blocked: true,
+    reason: 'no_sponsorship',
+    visaSponsorship: 'no',
+    role: role || {},
+  };
+  await saveToHistory(url, pageTitle, analysis, '');
+}
+
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function scoreColor(score) {
   if (score >= 70) return '#22c55e';
@@ -260,15 +273,20 @@ async function renderHistory() {
   }
 
   const items = history.map((h, i) => {
-    const score = h.analysis?.overallMatch || 0;
-    const color = scoreColor(score);
     const role = h.analysis?.role || {};
+    const noSponsor = h.analysis?.blocked === true;
+    const scoreCell = noSponsor
+      ? `<div class="history-score" style="color:#f87171;font-size:13px">🚫</div>`
+      : `<div class="history-score" style="color:${scoreColor(h.analysis?.overallMatch || 0)}">${h.analysis?.overallMatch || 0}%</div>`;
+    const subline = noSponsor
+      ? `<span style="color:#f87171">No visa sponsorship</span> · ${timeAgo(h.timestamp)}`
+      : `${role.company || ''} · ${timeAgo(h.timestamp)}`;
     return `
       <div class="history-item" data-action="loadHistoryItem" data-arg="${i}">
-        <div class="history-score" style="color:${color}">${score}%</div>
+        ${scoreCell}
         <div class="history-info">
           <div class="history-title">${role.title || h.pageTitle || 'Job Analysis'}</div>
-          <div class="history-company">${role.company || ''} · ${timeAgo(h.timestamp)}</div>
+          <div class="history-company">${subline}</div>
         </div>
         <span style="color:var(--muted);font-size:11px">▶</span>
       </div>`;
@@ -288,7 +306,12 @@ async function renderHistory() {
 window.loadHistoryItem = async function (idx) {
   const history = await getAllHistory();
   const entry = history[idx];
-  if (entry) renderResults(entry.analysis, entry.coverLetter, true);
+  if (!entry) return;
+  if (entry.analysis?.blocked) {
+    renderNoSponsorship(entry.analysis.role);
+  } else {
+    renderResults(entry.analysis, entry.coverLetter, true);
+  }
 };
 
 window.confirmClearHistory = async function () {
@@ -478,6 +501,7 @@ async function startAnalysis() {
   }
 
   if (result.blocked && result.reason === 'no_sponsorship') {
+    await saveNoSponsorship(tab.url, tab.title, result.role);
     renderNoSponsorship(result.role);
     return;
   }
@@ -524,21 +548,31 @@ async function renderTabSelector() {
 
   const items = tabs.map((t, i) => {
     const cached = history.find(h => h.url === t.url);
+    const noSponsor = cached?.analysis?.blocked === true;
     const score = cached?.analysis?.overallMatch;
     let domain = '';
     try { domain = new URL(t.url).hostname.replace('www.', ''); } catch (_) {}
 
+    // Jobs already known to not sponsor are pre-unchecked and labelled so the
+    // user can skip them without re-analyzing.
+    const statusLine = noSponsor
+      ? ' · 🚫 no sponsorship'
+      : (cached ? ' · analyzed' : '');
+    const rightBadge = noSponsor
+      ? `<span class="tab-cached-score" style="color:#f87171;font-size:10px">🚫 No sponsorship</span>`
+      : (score != null ? `<span class="tab-cached-score" style="color:${scoreColor(score)}">${score}%</span>` : '');
+
     return `
-      <div class="tab-item">
+      <div class="tab-item${noSponsor ? ' tab-item-blocked' : ''}">
         <input type="checkbox" class="tab-check" id="check-${i}"
           data-tab-id="${t.id}"
           data-tab-url="${(t.url || '').replace(/"/g, '&quot;')}"
           data-tab-title="${(t.title || '').replace(/"/g, '&quot;')}">
         <label for="check-${i}" class="tab-label">
           <div class="tab-title">${t.title || domain}</div>
-          <div class="tab-domain">${domain}${cached ? ' · analyzed' : ''}</div>
+          <div class="tab-domain">${domain}${statusLine}</div>
         </label>
-        ${score != null ? `<span class="tab-cached-score" style="color:${scoreColor(score)}">${score}%</span>` : ''}
+        ${rightBadge}
       </div>`;
   }).join('');
 
@@ -670,6 +704,7 @@ async function analyzeOneTab(tab) {
   }
 
   if (result.blocked && result.reason === 'no_sponsorship') {
+    await saveNoSponsorship(tab.url, tab.title, result.role);
     updateTabProgress(tab.id, 'blocked');
     return { blocked: true, reason: 'no_sponsorship', role: result.role };
   }
@@ -793,7 +828,11 @@ async function init() {
   if (tab?.url) {
     const cached = await getHistoryForUrl(tab.url);
     if (cached) {
-      renderResults(cached.analysis, cached.coverLetter);
+      if (cached.analysis?.blocked) {
+        renderNoSponsorship(cached.analysis.role);
+      } else {
+        renderResults(cached.analysis, cached.coverLetter);
+      }
       return;
     }
   }
