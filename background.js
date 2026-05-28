@@ -6,33 +6,35 @@
 // ── Default resume (pre-loaded with Kartheek's resume) ─────────────────────
 const DEFAULT_RESUME = `
 Kartheek Mannepalli
+Senior Software Engineer | Seattle, WA
+LinkedIn: https://www.linkedin.com/in/kartheekmannepalli/
 Email: kartheekmannepalli@gmail.com | Phone: 408-348-4539
 
 SUMMARY
 Senior Software Engineer with 15 years of experience specializing in high-scale microservices (1M TPS) and AI orchestration. Proven track record of driving ~$150M+ in annual revenue through architectural convergence and pioneering MCP-based AI frameworks.
 
 TECHNICAL SKILLS
-Languages & Frameworks: Kotlin, Java, Scala, Python, JavaScript, Spring, AWS, NodeJS
-Data & Infrastructure: Kafka, Docker, Kubernetes, PostgreSQL, SQL Server, Redis, MongoDB, DynamoDB, Apache Airflow
-Back-End & Architecture: Microservices, Event-Driven Architecture, CQRS, Domain-Driven Design
-AI & LLM Infrastructure: MCP, RAG Architecture, LLM Integration, LangChain, GenAI and Prompt Engineering
+Languages & Frameworks: Kotlin, Java, Scala, Python, JavaScript, Spring, NodeJS, Typescript
+Data & Infrastructure: AWS, Kafka, Docker, Kubernetes, PostgreSQL, Redis, DynamoDB, Terraform, CI/CD, Airflow
+Back-End & Architecture: Microservices, Event-Driven Architecture, CQRS, Domain-Driven Design, gRPC
+AI & LLM Infrastructure: AI Agents, MCP, RAG Architecture, LLM Integration, LangChain, Vector DB, Embeddings, GenAI
 
 WORK EXPERIENCE
 
 Expedia Inc., Seattle, WA — July 2022 to May 2026
-Role: Senior Software Development Engineer | Project: Pricing
+Senior Software Development Engineer
 - Managed a mission-critical suite of services in a complex gRPC-based microservice architecture, overseeing technical delivery and system health for high-traffic environments reaching ~1M TPS maintaining 99.99% uptime during peak.
-- Led cross-functional projects involving multiple services, closely collaborating with the product team to gather requirements and plan project deliveries for features like XLR and IPM TSF resulting in ~100M in annual revenue.
-- Pioneered the design and deployment of standardized Model Context Protocol (MCP) tools within the team, establishing a framework for AI agents to interface with complex backend services. This initiative eliminated manual data discovery bottlenecks reducing debugging time from 2-3 hours to 10 minutes.
+- Led cross-functional projects involving multiple services, closely collaborating with the product team to gather requirements and plan project deliveries for features like XLR and IPM TSF resulting in ~$100M+ in annual revenue.
+- Pioneered the design and deployment of an org specific AI agent along with standardized Model Context Protocol (MCP) tools, establishing a framework for AI agents to interface with complex backend services. This initiative eliminated manual data discovery and analysis bottleneck, reducing debugging time from 2-3 hours to 10 minutes.
 - Spearheaded an organization-wide AI hackathons and training programs, successfully upskilling ~200 engineers on RAG-based application development, directly leading to the launch of ~40 internal AI initiatives.
 - Designed and deployed RAG-based agents to streamline internal documentation search, resulting in a 50% increase in knowledge discovery speed and reducing repetitive support tickets by 20%.
 - Championed an inner-source model for Pricing services, enabling 6 engineers from external teams to contribute code independently, reducing core team dependency.
-- Orchestrated critical architectural convergence initiatives within the vacation rental domain, unifying disparate legacy systems to enable high-impact promotion capabilities that drove a ~50M increase in annual revenue.
+- Orchestrated critical architectural convergence initiatives within the vacation rental domain, unifying disparate legacy systems to enable high-impact promotion capabilities that drove a ~$50M+ increase in annual revenue.
 - Independently engineered an organization-wide automated testing and debugging suite used by 6 teams, reducing manual investigation time by 60% and ensuring zero-discrepancy transitions.
 - Mentored engineers by providing technical guidance, sharing best practices, and facilitating their professional growth resulting in 20% increase in team story-point velocity.
 
 Expeditors International of Washington, Inc., Seattle, WA — November 2015 to July 2022
-Role: Senior Software Developer
+Senior Software Developer
 
 Project: Delivery & Pickup (October 2021 to July 2022)
 - Led the design of a next-generation logistics platform for Delivery & Pickup utilizing Domain-Driven Design (DDD) and microservices to accelerate global operations.
@@ -42,29 +44,29 @@ Project: Warehousing (December 2017 to October 2021)
 - Configured a continuous integration pipeline using GitLab runners which automates the build process, runs unit tests and integration tests.
 - Orchestrated a containerized CI/CD infrastructure using GitLab, Docker, and Kubernetes, enabling concurrent pipeline execution and automated testing.
 - Engineered robust event-processing strategies to handle millions of Kafka events using CQRS and event-driven principles.
-- Mentored and trained new developers.
-- Identified and remediated critical performance bottlenecks, achieving a 200% latency improvement in the core web application.
-- Supported global expansion of the application to international branches.
+- Mentored and trained new developers to get them up to speed with all the tools and technologies used within the application.
+- Identified and remediated critical performance bottlenecks, achieving a 67% reduction in latency for the core web application through sophisticated debugging strategies.
+- Supported the initial deployment of the application to a single branch and then expansion to other branches around the globe.
 
 Project: Customs (November 2015 to December 2017)
-- Designed & implemented features which helped expand application to branches in Europe.
+- Designed & implemented features which helped expand the application to branches in Europe.
 - Pioneered the use of Kafka for inter-application communication.
-- Built APIs for data flow between applications.
-- Championed the team's transition to Agile methodologies.
+- Built an API for the app to help flow of data from other applications.
+- Championed the team's transition to Agile methodologies, improving transparency and delivery predictability.
 
 Allconnect (Formerly Whitefence), Houston, TX — April 2011 to October 2015
-Position: Java Web Developer
-- Completely redesigned and developed company's websites infrastructure.
-- Integrated two different web platforms: Hybris and Endeca.
-- Worked on Streaming serviceability project with dynamic provider responses.
+Java Web Developer
+- Worked on completely redesigning and developing company's websites infrastructure.
+- Worked on integrating two different web platforms Hybris and Endeca to serve a single website.
+- Worked on project Streaming serviceability where packages/products from different providers are updated on the page dynamically based on provider responses.
 - Trained and supported offshore development team.
 
 Hooduku Inc, Houston, TX — February 2010 to March 2011
-Position: Web Developer
-- Developed an e-commerce website for cloud space purchasing.
-- Built shopping cart from scratch using jQuery and PHP.
+Web Developer
+- Developed an e-commerce website that simplified buying cloud space and pre-installing databases.
+- Developed a shopping cart experience from scratch using jQuery and PHP.
 - Integrated Rackspace API, cPanel API, Recurly billing API.
-- Built Role-based access control system and user forum.
+- Built a Role based access control system and built a forum for users.
 
 EDUCATION
 Master of Science, Computer Science — University of Houston, Houston, TX (December 2009)
@@ -104,6 +106,14 @@ SCORING RULES (must-have skills weigh heavily):
 - For the overall match: if any must-have skill bucket is entirely missing, the overall match score CANNOT exceed 85. If two or more must-have buckets are entirely missing, the overall match CANNOT exceed 72. If three or more, cannot exceed 60.
 - Strong matches in nice-to-have or adjacent areas do NOT cancel out a missing must-have. They can lift the score within the cap, but cannot bypass it.
 - Populate the scoreReasoning field with a clear, plain-English explanation of WHY the overall score landed where it did — specifically calling out any must-have gaps that pulled it down and any standout strengths that lifted it. This is what the user sees to understand the score.
+
+ATS SCREENING SIMULATION (the "ats" object — separate from the nuanced overallMatch):
+The overallMatch above is a smart, human-recruiter-style judgment. The "ats" object instead simulates how an automated Applicant Tracking System (Workday, Greenhouse, Lever, iCIMS) and a first-pass keyword/qualification screen would score THIS resume against THIS job — a much more literal, mechanical pass. Produce it as follows:
+- ats.score (0-100): drive it PRIMARILY by required ("must-have") keyword and qualification coverage — i.e. of the must-have keywords/skills the JD names, what fraction appear (case-insensitive, with the variant rules above) in the resume. Then adjust: if the resume's titles/summary don't align with the JD's job title, dock points; if the candidate's years of experience are below a stated minimum, dock points; if a HARD requirement that an ATS or screen would auto-filter on is explicitly required and unmet — a specific degree, an active security clearance, a mandatory onsite location/relocation, or work authorization without sponsorship — cap ats.score at 40 or below. Do NOT let strong nice-to-have coverage inflate this score; ATS keyword screens are literal.
+- ats.verdict: exactly one of "Likely passes ATS" (score >= 75), "Borderline" (50-74), or "Likely filtered out" (< 50).
+- ats.requiredCoverage: a short human string like "6 of 8 required keywords present".
+- ats.checks: 3-5 objects, each { "label", "status" ("pass" | "warn" | "fail"), "detail" (one short clause) }. Always include these labels: "Required keyword coverage", "Job title alignment", "Years of experience", "Hard requirements" (degree / clearance / location / work authorization — mark "pass" if none are blocking).
+- ats.tips: 1-4 short, concrete edits that would improve ATS pass-through for THIS job. CRITICAL: only ever suggest adding a keyword or phrasing the candidate TRUTHFULLY has experience with based on the resume (e.g. surfacing a skill already implied by a bullet). Never suggest fabricating a skill, title, degree, or clearance the resume does not support.
 
 Return ONLY valid JSON in this exact structure (no markdown, no explanation outside the JSON):
 
@@ -169,6 +179,18 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation outs
   "keywordsFound": ["<every important keyword from JD that appears in resume — apply case-insensitive + variant matching rules above>"],
   "keywordsMissingMustHave": ["<must-have keyword from JD that is NOT in resume — these are mandatory requirements the candidate lacks>"],
   "keywordsMissingNiceToHave": ["<nice-to-have / preferred keyword from JD that is NOT in resume>"],
+  "ats": {
+    "score": <integer 0-100 — literal ATS keyword/qualification match for this resume vs this JD, per the ATS SCREENING SIMULATION rules above>,
+    "verdict": "<'Likely passes ATS' | 'Borderline' | 'Likely filtered out'>",
+    "requiredCoverage": "<short string e.g. '6 of 8 required keywords present'>",
+    "checks": [
+      { "label": "Required keyword coverage", "status": "<pass|warn|fail>", "detail": "<short clause>" },
+      { "label": "Job title alignment", "status": "<pass|warn|fail>", "detail": "<short clause>" },
+      { "label": "Years of experience", "status": "<pass|warn|fail>", "detail": "<short clause>" },
+      { "label": "Hard requirements", "status": "<pass|warn|fail>", "detail": "<degree / clearance / location / work authorization>" }
+    ],
+    "tips": ["<concrete, truthful edit to improve ATS pass-through for this job>"]
+  },
   "applicationAdvice": "<1-2 sentences on how to position this application or what to emphasize>",
   "generateCoverLetter": <true if overallMatch >= 70, else false>,
   "visaSponsorship": "<one of: 'yes' | 'no' | 'unknown'>. Set 'yes' if the JD explicitly states H1B or visa sponsorship is available (e.g. 'we sponsor H1B', 'visa sponsorship provided', 'will sponsor work authorization'). Set 'no' if the JD explicitly states sponsorship is NOT available (e.g. 'must be authorized to work in the US', 'no sponsorship', 'cannot sponsor', 'US citizen or green card holder only', 'must have existing work authorization'). Set 'unknown' if the JD does not mention visa sponsorship at all."
@@ -317,7 +339,7 @@ async function analyzeJob(jobText, jobTitle, company) {
       { role: 'user', content: analysisPrompt },
       { role: 'assistant', content: '{' },
     ],
-    3000
+    3800
   );
 
   let analysis;

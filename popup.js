@@ -194,6 +194,44 @@ function buildKeywords(found = [], missingMustHave = [], missingNiceToHave = [])
     </div>`;
 }
 
+// ── ATS screening section ─────────────────────────────────────────────────────
+function atsCheckIcon(status) {
+  if (status === 'pass') return '✅';
+  if (status === 'warn') return '⚠️';
+  if (status === 'fail') return '❌';
+  return '•';
+}
+
+function buildAtsSection(ats) {
+  // Gracefully skip for older history entries analyzed before this field existed
+  if (!ats || typeof ats.score !== 'number') return '';
+  const color = scoreColor(ats.score);
+  const checks = (ats.checks || []).map(c => `
+    <div class="ats-check">
+      <span class="ats-check-icon">${atsCheckIcon(c.status)}</span>
+      <div style="flex:1;min-width:0">
+        <div class="ats-check-label">${c.label || ''}</div>
+        ${c.detail ? `<div class="ats-check-detail">${c.detail}</div>` : ''}
+      </div>
+    </div>`).join('');
+  const tips = (ats.tips || []).map(t => `<li>${t}</li>`).join('');
+  return `
+    <div class="ats-section">
+      <div class="ats-top">
+        <div class="section-label" style="padding:0">🤖 ATS Screening Check</div>
+        <span class="ats-score" style="color:${color}">${ats.score}%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:7px 0 9px">
+        ${ats.verdict ? `<span class="ats-verdict" style="color:${color};background:${color}1f;border:1px solid ${color}55">${ats.verdict}</span>` : ''}
+        ${ats.requiredCoverage ? `<span style="font-size:11px;color:var(--muted)">${ats.requiredCoverage}</span>` : ''}
+      </div>
+      <div class="ats-bar"><div style="width:${ats.score}%;background:${color}"></div></div>
+      ${checks}
+      ${tips ? `<div class="ats-tips"><div class="detail-label" style="margin-bottom:0">💡 To improve ATS pass-through</div><ul>${tips}</ul></div>` : ''}
+      <div class="ats-foot">Literal keyword/qualification screen — separate from the overall match above.</div>
+    </div>`;
+}
+
 // ── Cover letter ──────────────────────────────────────────────────────────────
 function buildCoverLetter(text) {
   if (!text) return '';
@@ -389,6 +427,8 @@ function renderResults(analysis, coverLetter, fromHistory = false, fromMulti = f
             </div>` : ''}
         </div>
       </div>
+
+      ${buildAtsSection(analysis.ats)}
 
       <div class="categories">
         <div class="section-label">Category Breakdown</div>

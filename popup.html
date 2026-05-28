@@ -251,6 +251,34 @@
     .keywords-section { padding: 0 16px; }
     .keyword-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
 
+    /* ── ATS screening ── */
+    .ats-section {
+      margin: 14px 16px 0;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .ats-top { display: flex; align-items: center; justify-content: space-between; }
+    .ats-score { font-size: 19px; font-weight: 800; line-height: 1; }
+    .ats-verdict { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+    .ats-bar {
+      height: 5px; background: var(--surface2);
+      border-radius: 3px; overflow: hidden; margin-bottom: 10px;
+    }
+    .ats-bar > div { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+    .ats-check {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 0; border-top: 1px solid var(--border);
+    }
+    .ats-check-icon { flex-shrink: 0; font-size: 12px; line-height: 1.5; }
+    .ats-check-label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .ats-check-detail { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .ats-tips { margin-top: 10px; }
+    .ats-tips ul { margin: 4px 0 0; padding-left: 18px; }
+    .ats-tips li { font-size: 11.5px; color: var(--text); margin-bottom: 3px; }
+    .ats-foot { font-size: 10px; color: var(--muted); margin-top: 9px; }
+
     /* Application advice */
     .advice-section {
       margin: 0 16px;
