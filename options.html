@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Job Match AI — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #232636;
+      --border: #2e3148; --text: #e8eaf0; --muted: #7c82a0;
+      --accent: #6c63ff; --accent-light: #8b85ff;
+      --green: #22c55e; --radius: 10px;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px; line-height: 1.6;
+      padding: 0; min-height: 100vh;
+    }
+    .page { max-width: 680px; margin: 0 auto; padding: 40px 24px; }
+
+    /* Header */
+    .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+    .logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), #a855f7);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .page-header h1 { font-size: 20px; font-weight: 800; }
+    .page-header h1 span { color: var(--accent-light); }
+    .page-header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .card .desc { font-size: 12px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+
+    /* Form elements */
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input[type="text"], input[type="password"], textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 13px;
+      padding: 10px 12px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+    textarea { resize: vertical; line-height: 1.5; min-height: 260px; }
+
+    .api-key-wrap { position: relative; }
+    .toggle-vis {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      font-size: 16px;
+    }
+    .api-hint {
+      font-size: 11px; color: var(--muted); margin-top: 6px;
+    }
+    .api-hint a { color: var(--accent-light); }
+
+    /* Switch row */
+    .switch-row {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; text-transform: none; letter-spacing: normal;
+      font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 0;
+    }
+    .switch-row input[type="checkbox"] {
+      width: 17px; height: 17px; flex-shrink: 0; cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .switch-text { user-select: none; }
+
+    /* Buttons */
+    .save-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 18px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      border: none; border-radius: var(--radius);
+      color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .save-btn:hover { opacity: 0.9; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e293b;
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Info box */
+    .info-box {
+      background: rgba(108,99,255,0.08);
+      border: 1px solid rgba(108,99,255,0.2);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 12px; color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .info-box strong { color: var(--accent-light); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="logo">🎯</div>
+      <div>
+        <h1>Job Match <span>AI</span> — Settings</h1>
+        <p>Configure your API key and resume profile</p>
+      </div>
+    </div>
+
+    <!-- API Key -->
+    <div class="card">
+      <h2>🔑 Claude API Key</h2>
+      <p class="desc">Your API key is stored locally in Chrome and never sent anywhere except Anthropic's servers. Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent-light)">console.anthropic.com</a>.</p>
+      <label for="apiKey">API Key</label>
+      <div class="api-key-wrap">
+        <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off" />
+        <button class="toggle-vis" id="toggleVisBtn" type="button" title="Show/hide">👁</button>
+      </div>
+      <p class="api-hint">Uses <strong>claude-sonnet-4-6</strong> · ~$0.002–0.01 per analysis · <a href="https://console.anthropic.com/settings/billing" target="_blank">Check usage</a></p>
+    </div>
+
+    <!-- Auto-analysis -->
+    <div class="card">
+      <h2>⚡ Automatic Analysis</h2>
+      <p class="desc">When enabled, the extension detects job postings as you browse and analyzes them automatically — no need to click. The match score appears as a colored badge on the toolbar icon.</p>
+      <label class="switch-row" for="autoAnalyze">
+        <input type="checkbox" id="autoAnalyze" />
+        <span class="switch-text">Automatically analyze job pages as I browse</span>
+      </label>
+      <p class="api-hint">Each auto-analysis uses API credits just like a manual run. Turn this off to analyze only on click.</p>
+    </div>
+
+    <!-- Resume -->
+    <div class="card">
+      <h2>📄 Your Resume / Profile</h2>
+      <p class="desc">Your resume is pre-loaded based on the file you shared. Edit or update it here anytime — this is what Claude compares against every job description.</p>
+
+      <div class="info-box">
+        <strong>Tip:</strong> Keep this as plain text. Include all your skills, technologies, responsibilities, and achievements. The more detail, the better the match analysis.
+      </div>
+
+      <label for="resumeText">Resume Text</label>
+      <textarea id="resumeText" placeholder="Paste your resume here..."></textarea>
+    </div>
+
+    <button class="save-btn" id="saveBtn" type="button">💾 Save Settings</button>
+  </div>
+
+  <div class="toast" id="toast">✅ Settings saved!</div>
+
+  <script src="options.js"></script>
+</body>
+</html>
