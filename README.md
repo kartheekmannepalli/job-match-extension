@@ -11,6 +11,9 @@ A Chrome extension that instantly analyzes any job description against your resu
 - **Per-URL history** — remembers the last 15 jobs you analyzed; reopening the popup on the same page shows the cached result instantly
 - **Works everywhere** — LinkedIn, Indeed, Glassdoor, Greenhouse, Lever, Workday, and any company careers page
 
+## Output Example
+![img.png](img.png)
+
 ## Setup
 
 ### 1. Get a Claude API Key
@@ -30,7 +33,7 @@ Go to [console.anthropic.com](https://console.anthropic.com) → API Keys → Cr
 
 Click the extension icon (🎯) in the toolbar → click ⚙️ Settings → paste your API key and click **Save Settings**.
 
-Your resume is pre-loaded. You can edit it in the Settings page anytime.
+Then paste your resume in the same Settings page — analysis won't run without it.
 
 ## How to Use
 
@@ -66,7 +69,7 @@ job-match-extension/
 | Setting | Where | Default |
 |---------|-------|---------|
 | Claude API Key | Settings page (⚙️) | *(empty — required)* |
-| Resume text | Settings page (⚙️) | Pre-loaded with your profile |
+| Resume text | Settings page (⚙️) | *(empty — required)* |
 | AI model | `background.js` → `callClaude()` | `claude-haiku-4-5-20251001` |
 | Cover letter threshold | `background.js` → `analyzeJob()` | 60% match |
 | History size | `popup.js` → `MAX_HISTORY` | 15 entries |

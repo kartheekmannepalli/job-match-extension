@@ -1,6 +1,8 @@
 .DS_Store
 *.log
 node_modules/
+# IDE files (workspace.xml leaks local machine paths)
+.idea/
 # never commit secrets / local config
 secrets.json
 *.key

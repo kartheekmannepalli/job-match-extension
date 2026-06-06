@@ -3,77 +3,8 @@
  * Handles Claude API calls for job match analysis and cover letter generation.
  */
 
-// ── Default resume (pre-loaded with Kartheek's resume) ─────────────────────
-const DEFAULT_RESUME = `
-Kartheek Mannepalli
-Senior Software Engineer | Seattle, WA
-LinkedIn: https://www.linkedin.com/in/kartheekmannepalli/
-Email: kartheekmannepalli@gmail.com | Phone: 408-348-4539
-
-SUMMARY
-Senior Software Engineer with 15 years of experience specializing in high-scale microservices (1M TPS) and AI orchestration. Proven track record of driving ~$150M+ in annual revenue through architectural convergence and pioneering MCP-based AI frameworks.
-
-TECHNICAL SKILLS
-Languages & Frameworks: Kotlin, Java, Scala, Python, JavaScript, Spring, NodeJS, Typescript
-Data & Infrastructure: AWS, Kafka, Docker, Kubernetes, PostgreSQL, Redis, DynamoDB, Terraform, CI/CD, Airflow
-Back-End & Architecture: Microservices, Event-Driven Architecture, CQRS, Domain-Driven Design, gRPC
-AI & LLM Infrastructure: AI Agents, MCP, RAG Architecture, LLM Integration, LangChain, Vector DB, Embeddings, GenAI
-
-WORK EXPERIENCE
-
-Expedia Inc., Seattle, WA — July 2022 to May 2026
-Senior Software Development Engineer
-- Managed a mission-critical suite of services in a complex gRPC-based microservice architecture, overseeing technical delivery and system health for high-traffic environments reaching ~1M TPS maintaining 99.99% uptime during peak.
-- Led cross-functional projects involving multiple services, closely collaborating with the product team to gather requirements and plan project deliveries for features like XLR and IPM TSF resulting in ~$100M+ in annual revenue.
-- Pioneered the design and deployment of an org specific AI agent along with standardized Model Context Protocol (MCP) tools, establishing a framework for AI agents to interface with complex backend services. This initiative eliminated manual data discovery and analysis bottleneck, reducing debugging time from 2-3 hours to 10 minutes.
-- Spearheaded an organization-wide AI hackathons and training programs, successfully upskilling ~200 engineers on RAG-based application development, directly leading to the launch of ~40 internal AI initiatives.
-- Designed and deployed RAG-based agents to streamline internal documentation search, resulting in a 50% increase in knowledge discovery speed and reducing repetitive support tickets by 20%.
-- Championed an inner-source model for Pricing services, enabling 6 engineers from external teams to contribute code independently, reducing core team dependency.
-- Orchestrated critical architectural convergence initiatives within the vacation rental domain, unifying disparate legacy systems to enable high-impact promotion capabilities that drove a ~$50M+ increase in annual revenue.
-- Independently engineered an organization-wide automated testing and debugging suite used by 6 teams, reducing manual investigation time by 60% and ensuring zero-discrepancy transitions.
-- Mentored engineers by providing technical guidance, sharing best practices, and facilitating their professional growth resulting in 20% increase in team story-point velocity.
-
-Expeditors International of Washington, Inc., Seattle, WA — November 2015 to July 2022
-Senior Software Developer
-
-Project: Delivery & Pickup (October 2021 to July 2022)
-- Led the design of a next-generation logistics platform for Delivery & Pickup utilizing Domain-Driven Design (DDD) and microservices to accelerate global operations.
-
-Project: Warehousing (December 2017 to October 2021)
-- Architected and implemented Zero Downtime deployment strategies for the Warehousing project, ensuring 24/7 service availability for international branches.
-- Configured a continuous integration pipeline using GitLab runners which automates the build process, runs unit tests and integration tests.
-- Orchestrated a containerized CI/CD infrastructure using GitLab, Docker, and Kubernetes, enabling concurrent pipeline execution and automated testing.
-- Engineered robust event-processing strategies to handle millions of Kafka events using CQRS and event-driven principles.
-- Mentored and trained new developers to get them up to speed with all the tools and technologies used within the application.
-- Identified and remediated critical performance bottlenecks, achieving a 67% reduction in latency for the core web application through sophisticated debugging strategies.
-- Supported the initial deployment of the application to a single branch and then expansion to other branches around the globe.
-
-Project: Customs (November 2015 to December 2017)
-- Designed & implemented features which helped expand the application to branches in Europe.
-- Pioneered the use of Kafka for inter-application communication.
-- Built an API for the app to help flow of data from other applications.
-- Championed the team's transition to Agile methodologies, improving transparency and delivery predictability.
-
-Allconnect (Formerly Whitefence), Houston, TX — April 2011 to October 2015
-Java Web Developer
-- Worked on completely redesigning and developing company's websites infrastructure.
-- Worked on integrating two different web platforms Hybris and Endeca to serve a single website.
-- Worked on project Streaming serviceability where packages/products from different providers are updated on the page dynamically based on provider responses.
-- Trained and supported offshore development team.
-
-Hooduku Inc, Houston, TX — February 2010 to March 2011
-Web Developer
-- Developed an e-commerce website that simplified buying cloud space and pre-installing databases.
-- Developed a shopping cart experience from scratch using jQuery and PHP.
-- Integrated Rackspace API, cPanel API, Recurly billing API.
-- Built a Role based access control system and built a forum for users.
-
-EDUCATION
-Master of Science, Computer Science — University of Houston, Houston, TX (December 2009)
-B. Tech, Computer Science — Jawaharlal Nehru University (JNTU), Hyderabad, India (May 2007)
-
-TARGET ROLES: Senior Software Engineer, Staff Software Engineer, Principal Engineer
-`.trim();
+// No default resume ships with the extension — the user pastes their own
+// resume in the Settings page. Analysis refuses to run without one.
 
 // ── Build the analysis prompt ────────────────────────────────────────────────
 function buildAnalysisPrompt(resumeText, jobText, jobTitle, company) {
@@ -131,7 +62,7 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation outs
       "name": "Technical Skills",
       "score": <integer 0-100>,
       "icon": "⚙️",
-      "matched": ["<skill matched with context, e.g. 'Kafka — 6+ years of production event processing at Expeditors'>"],
+      "matched": ["<skill matched with context, e.g. 'Kafka — 6+ years of production event processing at a previous employer'>"],
       "gaps": ["<missing or weak skill with context>"],
       "insight": "<1 sentence nuanced observation>"
     },
@@ -212,7 +143,7 @@ ${jobText.substring(0, 4000)}
 Match Analysis Summary: ${analysisResult.summary || ''}
 Top matched skills: ${(analysisResult.keywordsFound || []).slice(0, 8).join(', ')}
 
-Write a professional, genuine cover letter for Kartheek Mannepalli applying for the ${role.title || 'role'} at ${role.company || 'the company'}.
+Write a professional, genuine cover letter for the candidate applying for the ${role.title || 'role'} at ${role.company || 'the company'}. Use the candidate's name exactly as it appears in the resume above; if no name is present, write it without a name.
 
 Guidelines:
 - 3-4 paragraphs, confident but not arrogant tone
@@ -329,10 +260,13 @@ function checkVisaSponsorship(jobText) {
 async function analyzeJob(jobText, jobTitle, company) {
   const stored = await chrome.storage.local.get(['apiKey', 'resumeText']);
   const apiKey = stored.apiKey || '';
-  const resumeText = stored.resumeText || DEFAULT_RESUME;
+  const resumeText = (stored.resumeText || '').trim();
 
   if (!apiKey) {
     throw new Error('NO_API_KEY');
+  }
+  if (!resumeText || resumeText.length < 50) {
+    throw new Error('NO_RESUME');
   }
 
   // ── Visa pre-check: bail immediately if no sponsorship, no API call needed ──

@@ -497,13 +497,21 @@ function renderNoSponsorship(role = {}) {
 // ── Render: error ─────────────────────────────────────────────────────────────
 function renderError(message) {
   const isNoKey = message === 'NO_API_KEY';
+  const isNoResume = message === 'NO_RESUME';
+  const needsSetup = isNoKey || isNoResume;
+  const title = isNoKey ? 'API Key Required' : isNoResume ? 'Resume Required' : 'Something went wrong';
+  const body = isNoKey
+    ? 'Please add your Claude API key in settings to start analyzing jobs.'
+    : isNoResume
+      ? 'Please paste your resume in settings so Claude has something to compare jobs against.'
+      : message;
   root.innerHTML = `
     <div class="state">
       <div class="state-icon">⚠️</div>
-      <h2>${isNoKey ? 'API Key Required' : 'Something went wrong'}</h2>
-      <p>${isNoKey ? 'Please add your Claude API key in settings to start analyzing jobs.' : message}</p>
+      <h2>${title}</h2>
+      <p>${body}</p>
     </div>
-    ${isNoKey
+    ${needsSetup
       ? `<button class="analyze-btn" data-action="openSettings">Open Settings</button>`
       : `<button class="analyze-btn" data-action="resetView">Try Again</button>`}`;
 }

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run this once from inside the job-match-extension folder to create the GitHub repo and push.
-# Usage: bash setup-git.sh
+# Usage: GITHUB_USER=<your-github-username> bash setup-git.sh
+GITHUB_USER="${GITHUB_USER:-$(gh api user -q .login)}"
 
 set -e
 
@@ -30,7 +31,7 @@ git commit -m "Initial commit: Job Match AI Chrome extension
 - API key stored locally only, never hardcoded"
 
 echo "🚀 Creating GitHub repo and pushing..."
-gh repo create kartheekmannepalli/job-match-extension \
+gh repo create "$GITHUB_USER/job-match-extension" \
   --public \
   --description "Chrome extension: AI-powered job match analyzer using Claude — score + cover letter" \
   --source=. \
@@ -39,4 +40,4 @@ gh repo create kartheekmannepalli/job-match-extension \
 
 echo ""
 echo "✅ Done! Your repo is live at:"
-echo "   https://github.com/kartheekmannepalli/job-match-extension"
+echo "   https://github.com/$GITHUB_USER/job-match-extension"

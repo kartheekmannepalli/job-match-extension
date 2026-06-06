@@ -18,7 +18,7 @@ A Chrome extension that compares any job description against your resume using C
 
 1. Click the 🎯 icon → click the ⚙️ gear icon (top right of popup)
 2. Enter your **Claude API Key** (get one at https://console.anthropic.com)
-3. Your resume is pre-loaded — edit it if needed
+3. Paste your **resume** as plain text (required — analysis won't run without it)
 4. Click **Save Settings**
 
 ---
@@ -37,7 +37,7 @@ A Chrome extension that compares any job description against your resume using C
    - **AI & Innovation** — ML/AI/LLM experience fit
    - **Leadership & Collaboration** — mentorship, cross-functional work
    - **Domain & Industry Fit** — industry/vertical alignment
-6. If match ≥ 70%, a **cover letter is auto-generated** — click "Copy to Clipboard"
+6. If match ≥ 60%, a **cover letter is auto-generated** — click "Copy to Clipboard"
 
 ---
 
@@ -52,7 +52,11 @@ A Chrome extension that compares any job description against your resume using C
 1. **Zip the extension folder:**
    ```
    # From inside the job-match-extension folder's parent:
-   zip -r job-match-extension.zip job-match-extension/ --exclude "*.DS_Store" --exclude "*/__pycache__/*"
+   zip -r job-match-extension.zip job-match-extension/ \
+     --exclude "*.DS_Store" --exclude "*/__pycache__/*" \
+     --exclude "*/.idea/*" --exclude "*/.git/*" \
+     --exclude "*/img.png" --exclude "*/setup-git.sh" \
+     --exclude "*/README.md" --exclude "*/INSTALL.md" --exclude "*/.gitignore"
    ```
 
 2. **Go to the Chrome Web Store Developer Dashboard:**
@@ -80,12 +84,12 @@ A Chrome extension that compares any job description against your resume using C
 - Works best when you're on the direct job listing page (not search results)
 - If extraction fails, try clicking "Analyze" after the full page loads
 - Update your resume in Settings to match the level/role you're targeting
-- The extension uses `claude-sonnet-4-6` — roughly $0.002–0.01 per analysis
+- The extension uses `claude-haiku-4-5` — roughly $0.002–0.01 per analysis
 
 ---
 
 ## 🔒 Privacy
 
-- Your API key and resume are stored **only in Chrome's local storage** (`chrome.storage.sync`)
+- Your API key and resume are stored **only in Chrome's local storage** (`chrome.storage.local`)
 - Job descriptions are sent to Anthropic's API for analysis — no data is stored by this extension
 - Nothing is collected, logged, or shared by the extension itself
