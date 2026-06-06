@@ -6,12 +6,11 @@
 
 (function () {
   // ── Re-injection guard ───────────────────────────────────────────────────
-  // This file is BOTH declared as a content script for <all_urls> AND injected
-  // on demand via chrome.scripting.executeScript() from the popup. Without this
-  // guard, every manual "Analyze" click re-runs the whole IIFE in the same
-  // isolated world, registering another chrome.runtime.onMessage listener and
-  // spinning up another permanent setInterval — a real, compounding memory/CPU
-  // leak (and duplicate sendResponse calls). Bail out if we've already run.
+  // This file is injected on demand via chrome.scripting.executeScript() from
+  // the popup. Without this guard, every "Analyze" click re-runs the whole
+  // IIFE in the same isolated world, registering another
+  // chrome.runtime.onMessage listener (and duplicate sendResponse calls).
+  // Bail out if we've already run.
   if (window.__jobMatchAiInjected) return;
   window.__jobMatchAiInjected = true;
 
@@ -167,84 +166,4 @@
     }
     return true; // Keep message channel open for async
   });
-
-  // ════════════════════════════════════════════════════════════════════════
-  // AUTO-DETECTION — analyze job pages automatically as the user browses
-  // ════════════════════════════════════════════════════════════════════════
-
-  // Decide whether an extraction is confident enough to be a real job posting.
-  // Stricter than manual analysis: manual is explicit user intent, auto must
-  // avoid false positives (and wasted API calls) on non-job pages.
-  function isLikelyJobPage(extraction) {
-    if (!extraction || !extraction.text) return false;
-    const text = extraction.text.trim();
-    if (text.length < 400) return false;
-    // Strong signal: matched a known job-board / ATS structured selector.
-    if (extraction.source === 'structured') return true;
-    // Heuristic: needs a solid keyword score (manual threshold is 3; auto = 6).
-    if (extraction.source === 'heuristic' && (extraction.score || 0) >= 6) return true;
-    // Body fallback alone is too weak to auto-trigger.
-    return false;
-  }
-
-  let lastAutoUrl = '';        // URL we last sent for auto-analysis
-  let autoDetectTimer = null;  // retry interval handle
-
-  function safeSend(payload) {
-    try { chrome.runtime.sendMessage(payload, () => void chrome.runtime.lastError); }
-    catch (_) { /* extension context invalidated — ignore */ }
-  }
-
-  // One detection attempt. Returns true once a job page has been handled.
-  function tryAutoAnalyze() {
-    let extraction;
-    try { extraction = extractJobDescription(); } catch (_) { return false; }
-    if (!isLikelyJobPage(extraction)) return false;
-
-    const meta = getPageMeta();
-    if (meta.url === lastAutoUrl) return true; // already sent for this URL
-    lastAutoUrl = meta.url;
-
-    safeSend({
-      type: 'AUTO_ANALYZE',
-      jobText: extraction.text,
-      jobTitle: meta.title,
-      company: meta.hostname,
-      url: meta.url,
-    });
-    return true;
-  }
-
-  // Job boards are mostly SPAs that lazy-load the description, so retry on a
-  // short interval until detected or the budget runs out.
-  function scheduleAutoDetection() {
-    clearInterval(autoDetectTimer);
-    let attempts = 0;
-    const MAX_ATTEMPTS = 8; // ~10s total at 1.3s spacing
-    if (tryAutoAnalyze()) return;
-    autoDetectTimer = setInterval(() => {
-      attempts++;
-      if (tryAutoAnalyze() || attempts >= MAX_ATTEMPTS) {
-        clearInterval(autoDetectTimer);
-      }
-    }, 1300);
-  }
-
-  // Watch for SPA navigations (URL changes with no full page reload).
-  let currentHref = location.href;
-  const hrefWatcher = setInterval(() => {
-    // If the extension was reloaded/updated/disabled our context is gone; stop
-    // polling so we don't leak a dead timer that throws on every tick.
-    if (!chrome.runtime?.id) { clearInterval(hrefWatcher); clearInterval(autoDetectTimer); return; }
-    if (location.href !== currentHref) {
-      currentHref = location.href;
-      lastAutoUrl = '';                 // allow re-detection on the new URL
-      safeSend({ type: 'CLEAR_BADGE' }); // drop the previous page's badge
-      scheduleAutoDetection();
-    }
-  }, 1500);
-
-  // Kick off: clear any stale badge from a prior page, then detect.
-  safeSend({ type: 'CLEAR_BADGE' });
-  scheduleAutoDetection();
 })();
